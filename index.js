@@ -22,6 +22,7 @@ const PromofyType = Object.freeze({
   MYSTERY_BOX: "mystery_box",
   SCRATCH_GAME: "scratch_game",
   CASINO_LOYALTY: "casino_loyalty",
+  JACKPOT: "jackpot",
 });
 
 /**
@@ -57,6 +58,7 @@ const Promofy = (() => {
   let baseWidgetUrl = ""; // Base URL for widget loading
   let widgetCounter = 0; // Atomic counter for unique IDs
   let isReloading = false; // Prevent concurrent reloads
+  const JACKPOT_ANIM_MS = 300; // Jackpot bridge animation duration
 
   const ROUTE_MAP = {
     [PromofyProduct.F2P]: {
@@ -76,6 +78,7 @@ const Promofy = (() => {
       [PromofyType.MYSTERY_BOX]: "/casino/game",
       [PromofyType.SCRATCH_GAME]: "/casino/game",
       [PromofyType.CASINO_LOYALTY]: "/lobby/loyalty",
+      [PromofyType.JACKPOT]: "/casino/jackpot/cards",
     },
   };
 
@@ -459,6 +462,51 @@ const Promofy = (() => {
           }
 
           if (container && widgetConfig.iframe) {
+            // Jackpot widgets: reload both iframes (cards + fullscreen)
+            if (widgetConfig.isJackpot && widgetConfig.jackpotBridgeData) {
+              const configWithToken = {
+                ...widgetConfig.config,
+                token: globalAuthToken,
+              };
+              if (!globalAuthToken) delete configWithToken.token;
+
+              const cardsUrl = buildWidgetUrl({
+                ...configWithToken,
+                path: "/casino/jackpot/cards",
+                mini: false,
+              });
+              const fullscreenUrl = buildWidgetUrl({
+                ...configWithToken,
+                path: "/casino/jackpot/fullscreen",
+                mini: false,
+              });
+
+              widgetConfig.iframe.src = cardsUrl;
+              widgetConfig.jackpotBridgeData.fsIframe.src = fullscreenUrl;
+              widgetConfig.config = configWithToken;
+
+              reloadPromises.push(
+                new Promise((resolve) => {
+                  let loadedCount = 0;
+                  const checkBothLoaded = () => {
+                    if (++loadedCount >= 2) resolve();
+                  };
+                  widgetConfig.iframe.addEventListener(
+                    "load",
+                    checkBothLoaded,
+                    { once: true },
+                  );
+                  widgetConfig.jackpotBridgeData.fsIframe.addEventListener(
+                    "load",
+                    checkBothLoaded,
+                    { once: true },
+                  );
+                }),
+              );
+              continue;
+            }
+
+            // Standard widgets: reload single iframe
             // Get the new URL with updated token
             let newUrl;
             if (authVersion === "v1") {
@@ -502,6 +550,168 @@ const Promofy = (() => {
     }
   };
 
+  /**
+   * Build dual-iframe jackpot widget with embedded bridge logic.
+   * Creates cards iframe in container + hidden fullscreen overlay on document.body.
+   * Supports single-jackpot (promoId) and multi-jackpot (gameId) modes.
+   */
+  const buildJackpotWidget = (containerId, widgetConfig, callbacks = {}) => {
+    const container = document.getElementById(containerId);
+    if (!container) {
+      throw new Error(`Container element with id '${containerId}' not found`);
+    }
+
+    // Build URLs for both iframes using the existing buildWidgetUrl helper
+    const cardsUrl = buildWidgetUrl({
+      ...widgetConfig,
+      path: "/casino/jackpot/cards",
+      mini: false,
+    });
+    const fullscreenUrl = buildWidgetUrl({
+      ...widgetConfig,
+      path: "/casino/jackpot/fullscreen",
+      mini: false,
+    });
+
+    const widgetOrigin = new URL(baseWidgetUrl).origin;
+
+    // ── 1. Create cards iframe in container ──────────────────────────
+    container.innerHTML = "";
+    const cardsIframe = document.createElement("iframe");
+    cardsIframe.src = cardsUrl;
+    cardsIframe.allow = "autoplay";
+    cardsIframe.style.cssText =
+      "width:100%;border:none;display:block;overflow:hidden;" +
+      "background:transparent;opacity:0;transition:opacity 0.3s ease;";
+    container.appendChild(cardsIframe);
+
+    // ── 2. Create hidden fullscreen overlay + iframe ─────────────────
+    const overlay = document.createElement("div");
+    overlay.style.cssText =
+      "position:fixed;top:0;left:0;width:100%;height:100dvh;z-index:999999;" +
+      "background:rgba(0,0,0,0);transition:background " +
+      JACKPOT_ANIM_MS +
+      "ms ease;" +
+      "display:flex;align-items:center;justify-content:center;" +
+      "visibility:hidden;pointer-events:none;opacity:0;";
+
+    const fsIframe = document.createElement("iframe");
+    fsIframe.src = fullscreenUrl;
+    fsIframe.allow = "autoplay; fullscreen";
+    fsIframe.style.cssText =
+      "width:100%;height:100%;border:none;opacity:0;transition:opacity " +
+      JACKPOT_ANIM_MS +
+      "ms ease;";
+
+    overlay.appendChild(fsIframe);
+    document.body.appendChild(overlay);
+    // Fullscreen iframe loads silently in the background — zero layout impact.
+
+    // ── 3. Bridge functions ──────────────────────────────────────────
+    var savedOverflow = "";
+
+    function showFullscreen(promoIdPayload) {
+      overlay.style.visibility = "visible";
+      overlay.style.pointerEvents = "auto";
+      overlay.style.opacity = "1";
+      savedOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+
+      // Tell fullscreen iframe it's now visible (with promoId for multi-jackpot)
+      var showMsg = { type: "JACKPOT_SHOW" };
+      if (promoIdPayload) showMsg.payload = { promoId: promoIdPayload };
+      fsIframe.contentWindow.postMessage(showMsg, "*");
+
+      requestAnimationFrame(function () {
+        overlay.style.background = "rgba(0,0,0,0.7)";
+        fsIframe.style.opacity = "1";
+      });
+
+      if (callbacks.onOpen) callbacks.onOpen();
+    }
+
+    function showOverlayOnly() {
+      overlay.style.visibility = "visible";
+      overlay.style.pointerEvents = "auto";
+      overlay.style.opacity = "1";
+      savedOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+
+      // Fullscreen shows the winner modal directly
+      requestAnimationFrame(function () {
+        overlay.style.background = "rgba(0,0,0,0.7)";
+        fsIframe.style.opacity = "1";
+      });
+
+      if (callbacks.onOpen) callbacks.onOpen();
+    }
+
+    function hideFullscreen() {
+      fsIframe.style.opacity = "0";
+      overlay.style.background = "rgba(0,0,0,0)";
+      fsIframe.contentWindow.postMessage({ type: "JACKPOT_HIDE" }, "*");
+
+      setTimeout(function () {
+        overlay.style.visibility = "hidden";
+        overlay.style.pointerEvents = "none";
+        overlay.style.opacity = "0";
+        document.body.style.overflow = savedOverflow;
+      }, JACKPOT_ANIM_MS);
+
+      if (callbacks.onClose) callbacks.onClose();
+    }
+
+    // ── 4. Message listener (bridge) ─────────────────────────────────
+    var listener = function (event) {
+      // SECURITY: only accept messages from the widget origin
+      if (event.origin !== widgetOrigin) return;
+      if (!event.data || typeof event.data.type !== "string") return;
+
+      switch (event.data.type) {
+        // Cards iframe: user clicked a card → show fullscreen instantly
+        case "JACKPOT_OPEN":
+          showFullscreen(event.data.payload && event.data.payload.promoId);
+          break;
+
+        // Fullscreen iframe: user closed the modal → hide overlay
+        case "JACKPOT_CLOSE":
+          hideFullscreen();
+          break;
+
+        // Cards iframe: forward live socket data to fullscreen iframe (single socket)
+        case "JACKPOT_EVENT":
+          fsIframe.contentWindow.postMessage(event.data, "*");
+          break;
+
+        // Cards iframe: auto-resize height to fit content
+        case "content_height":
+          cardsIframe.style.height = event.data.height + "px";
+          cardsIframe.style.opacity = "1"; // Fade in once we have a height measurement
+          break;
+
+        // Fullscreen iframe: jackpot win — show overlay for winner modal
+        case "JACKPOT_WIN":
+          showOverlayOnly();
+          break;
+
+        // Fullscreen iframe: finished loading — ready for instant opens
+        case "JACKPOT_FULLSCREEN_READY":
+          break;
+      }
+    };
+
+    window.addEventListener("message", listener);
+
+    // ── 5. Cleanup function ──────────────────────────────────────────
+    var destroyBridge = function () {
+      window.removeEventListener("message", listener);
+      if (overlay.parentNode) overlay.remove();
+      document.body.style.overflow = savedOverflow || "";
+    };
+
+    return { cardsIframe, fsIframe, overlay, destroyBridge };
+  };
+
   const init = async ({
     userToken = null,
     promoId = null,
@@ -513,6 +723,8 @@ const Promofy = (() => {
     token = null, // v1 authentication token
     mini = false, // Mini parameter for Casino widgets
     params = null, // Additional query parameters to append to URL
+    onOpen = null, // Jackpot: callback when fullscreen opens
+    onClose = null, // Jackpot: callback when fullscreen closes
   }) => {
     if (!apiKey) {
       throw new Error(
@@ -579,6 +791,16 @@ const Promofy = (() => {
       throw new Error(`promoId is required for ${type} type`);
     }
 
+    // Validate jackpot type: requires v1 and either promoId or gameId
+    if (type === PromofyType.JACKPOT) {
+      const gameId = params && params.gameId;
+      if (!finalPromoId && !gameId) {
+        throw new Error(
+          "Either promoId or params.gameId is required for jackpot type",
+        );
+      }
+    }
+
     // Determine authentication version
     const useVersion = version || authVersion;
 
@@ -623,6 +845,47 @@ const Promofy = (() => {
     const widgetId = `${containerId}_${Date.now()}_${++widgetCounter}`;
 
     try {
+      // ── Jackpot type: dual-iframe with bridge ────────────────────
+      if (type === PromofyType.JACKPOT) {
+        if (!baseWidgetUrl) {
+          throw new Error(
+            "Base widget URL is required for jackpot. Configure it using Promofy.configure({baseWidgetUrl: 'YOUR_WIDGET_URL'})",
+          );
+        }
+
+        const jackpotResult = buildJackpotWidget(containerId, widgetConfig, {
+          onOpen,
+          onClose,
+        });
+
+        // Register in widget registry with jackpot metadata
+        const widgetEntry = {
+          config: widgetConfig,
+          iframe: jackpotResult.cardsIframe,
+          containerId: containerId,
+          version: useVersion,
+          timestamp: Date.now(),
+          isJackpot: true,
+          jackpotBridgeData: jackpotResult,
+          jackpotCallbacks: { onOpen, onClose },
+        };
+
+        if (!widgetRegistry.has(widgetId)) {
+          widgetRegistry.set(widgetId, widgetEntry);
+        }
+
+        currentConfig = widgetConfig;
+        iframeElement = jackpotResult.cardsIframe;
+        connected = true;
+
+        return {
+          success: true,
+          widgetId: widgetId,
+          version: useVersion,
+        };
+      }
+
+      // ── Standard widget flow ─────────────────────────────────────
       let iframeUrl;
 
       if (useVersion === "v1") {
@@ -794,6 +1057,11 @@ const Promofy = (() => {
             delete container._resizeObserver;
           }
 
+          // Clean up jackpot bridge (overlay, fullscreen iframe, listener)
+          if (widgetConfig.isJackpot && widgetConfig.jackpotBridgeData) {
+            widgetConfig.jackpotBridgeData.destroyBridge();
+          }
+
           // Clean up iframe
           if (widgetConfig.iframe) {
             widgetConfig.iframe.remove();
@@ -825,6 +1093,11 @@ const Promofy = (() => {
           if (container && container._resizeObserver) {
             container._resizeObserver.disconnect();
             delete container._resizeObserver;
+          }
+
+          // Clean up jackpot bridge (overlay, fullscreen iframe, listener)
+          if (widgetConfig.isJackpot && widgetConfig.jackpotBridgeData) {
+            widgetConfig.jackpotBridgeData.destroyBridge();
           }
 
           // Clean up iframe
