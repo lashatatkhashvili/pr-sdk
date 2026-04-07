@@ -596,7 +596,6 @@ const Promofy = (() => {
       "visibility:hidden;pointer-events:none;opacity:0;";
 
     const fsIframe = document.createElement("iframe");
-    fsIframe.src = fullscreenUrl;
     fsIframe.allow = "autoplay; fullscreen";
     fsIframe.style.cssText =
       "width:100%;height:100%;border:none;opacity:0;transition:opacity " +
@@ -605,7 +604,7 @@ const Promofy = (() => {
 
     overlay.appendChild(fsIframe);
     document.body.appendChild(overlay);
-    // Fullscreen iframe loads silently in the background — zero layout impact.
+    // Fullscreen iframe will start loading after cards render (deferred for performance).
 
     // ── 3. Bridge functions ──────────────────────────────────────────
     var savedOverflow = "";
@@ -687,6 +686,10 @@ const Promofy = (() => {
         case "content_height":
           cardsIframe.style.height = event.data.height + "px";
           cardsIframe.style.opacity = "1"; // Fade in once we have a height measurement
+          // Defer fullscreen iframe load until cards are visible — avoids resource contention
+          if (!fsIframe.src) {
+            fsIframe.src = fullscreenUrl;
+          }
           break;
 
         // Fullscreen iframe: jackpot win — show overlay for winner modal
