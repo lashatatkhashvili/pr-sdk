@@ -575,7 +575,7 @@ const Promofy = (() => {
 
     const widgetOrigin = new URL(baseWidgetUrl).origin;
 
-    // ── 1. Create cards iframe in container ──────────────────────────
+    // â”€â”€ 1. Create cards iframe in container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     container.innerHTML = "";
     const cardsIframe = document.createElement("iframe");
     cardsIframe.src = cardsUrl;
@@ -585,7 +585,7 @@ const Promofy = (() => {
       "background:transparent;opacity:0;transition:opacity 0.3s ease;";
     container.appendChild(cardsIframe);
 
-    // ── 2. Create hidden fullscreen overlay + iframe ─────────────────
+    // â”€â”€ 2. Create hidden fullscreen overlay + iframe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const overlay = document.createElement("div");
     overlay.style.cssText =
       "position:fixed;top:0;left:0;width:100%;height:100dvh;z-index:999999;" +
@@ -606,7 +606,7 @@ const Promofy = (() => {
     document.body.appendChild(overlay);
     // Fullscreen iframe will start loading after cards render (deferred for performance).
 
-    // ── 3. Bridge functions ──────────────────────────────────────────
+    // â”€â”€ 3. Bridge functions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var savedOverflow = "";
 
     function showFullscreen(promoIdPayload) {
@@ -660,19 +660,19 @@ const Promofy = (() => {
       if (callbacks.onClose) callbacks.onClose();
     }
 
-    // ── 4. Message listener (bridge) ─────────────────────────────────
+    // â”€â”€ 4. Message listener (bridge) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var listener = function (event) {
       // SECURITY: only accept messages from the widget origin
       if (event.origin !== widgetOrigin) return;
       if (!event.data || typeof event.data.type !== "string") return;
 
       switch (event.data.type) {
-        // Cards iframe: user clicked a card → show fullscreen instantly
+        // Cards iframe: user clicked a card â†’ show fullscreen instantly
         case "JACKPOT_OPEN":
           showFullscreen(event.data.payload && event.data.payload.promoId);
           break;
 
-        // Fullscreen iframe: user closed the modal → hide overlay
+        // Fullscreen iframe: user closed the modal â†’ hide overlay
         case "JACKPOT_CLOSE":
           hideFullscreen();
           break;
@@ -686,18 +686,18 @@ const Promofy = (() => {
         case "content_height":
           cardsIframe.style.height = event.data.height + "px";
           cardsIframe.style.opacity = "1"; // Fade in once we have a height measurement
-          // Defer fullscreen iframe load until cards are visible — avoids resource contention
+          // Defer fullscreen iframe load until cards are visible â€” avoids resource contention
           if (!fsIframe.src) {
             fsIframe.src = fullscreenUrl;
           }
           break;
 
-        // Fullscreen iframe: jackpot win — show overlay for winner modal
+        // Fullscreen iframe: jackpot win â€” show overlay for winner modal
         case "JACKPOT_WIN":
           showOverlayOnly();
           break;
 
-        // Fullscreen iframe: finished loading — ready for instant opens
+        // Fullscreen iframe: finished loading â€” ready for instant opens
         case "JACKPOT_FULLSCREEN_READY":
           break;
       }
@@ -705,7 +705,7 @@ const Promofy = (() => {
 
     window.addEventListener("message", listener);
 
-    // ── 5. Cleanup function ──────────────────────────────────────────
+    // â”€â”€ 5. Cleanup function â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var destroyBridge = function () {
       window.removeEventListener("message", listener);
       if (overlay.parentNode) overlay.remove();
@@ -794,12 +794,13 @@ const Promofy = (() => {
       throw new Error(`promoId is required for ${type} type`);
     }
 
-    // Validate jackpot type: requires v1 and either promoId or gameId
+    // Validate jackpot type: requires v1 and either promoId or both gameId + providerId
     if (type === PromofyType.JACKPOT) {
       const gameId = params && params.gameId;
-      if (!finalPromoId && !gameId) {
+      const providerId = params && params.providerId;
+      if (!finalPromoId && !(gameId && providerId)) {
         throw new Error(
-          "Either promoId or params.gameId is required for jackpot type",
+          "Either promoId or both params.gameId and params.providerId are required for jackpot type",
         );
       }
     }
@@ -848,7 +849,7 @@ const Promofy = (() => {
     const widgetId = `${containerId}_${Date.now()}_${++widgetCounter}`;
 
     try {
-      // ── Jackpot type: dual-iframe with bridge ────────────────────
+      // â”€â”€ Jackpot type: dual-iframe with bridge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if (type === PromofyType.JACKPOT) {
         if (!baseWidgetUrl) {
           throw new Error(
@@ -888,7 +889,7 @@ const Promofy = (() => {
         };
       }
 
-      // ── Standard widget flow ─────────────────────────────────────
+      // â”€â”€ Standard widget flow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       let iframeUrl;
 
       if (useVersion === "v1") {
