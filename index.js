@@ -192,19 +192,18 @@ const Promofy = (() => {
       // Get container's computed styles for accurate sizing
       const containerStyles = window.getComputedStyle(container);
       const containerPaddingTop = parseInt(containerStyles.paddingTop) || 0;
-      const containerPaddingBottom =
-        parseInt(containerStyles.paddingBottom) || 0;
+      const containerPaddingBottom = parseInt(containerStyles.paddingBottom) || 0;
       const containerPaddingLeft = parseInt(containerStyles.paddingLeft) || 0;
       const containerPaddingRight = parseInt(containerStyles.paddingRight) || 0;
 
       const minHeight = mini ? 660 : 600;
       const availableHeight = Math.max(
         containerRect.height - containerPaddingTop - containerPaddingBottom,
-        minHeight,
+        minHeight
       );
       const availableWidth = Math.max(
         containerRect.width - containerPaddingLeft - containerPaddingRight,
-        300,
+        300
       );
 
       // Force wrapper to exact dimensions
@@ -214,7 +213,7 @@ const Promofy = (() => {
       wrapper.style.maxHeight = `${availableHeight}px`;
 
       console.log(
-        `Adjusting iframe wrapper: ${availableWidth}x${availableHeight}px (container: ${containerRect.width}x${containerRect.height}px)`,
+        `Adjusting iframe wrapper: ${availableWidth}x${availableHeight}px (container: ${containerRect.width}x${containerRect.height}px)`
       );
 
       // Notify iframe content about resize
@@ -225,7 +224,7 @@ const Promofy = (() => {
             width: availableWidth,
             height: availableHeight,
           },
-          "*",
+          "*"
         );
       }
     }
@@ -235,7 +234,7 @@ const Promofy = (() => {
   const getSignedIframeUrl = async (config) => {
     if (!apiKey) {
       throw new Error(
-        "API key is required. Configure it using Promofy.configure({apiKey: 'YOUR_API_KEY'})",
+        "API key is required. Configure it using Promofy.configure({apiKey: 'YOUR_API_KEY'})"
       );
     }
 
@@ -274,13 +273,13 @@ const Promofy = (() => {
   const buildWidgetUrl = (config) => {
     if (!apiKey) {
       throw new Error(
-        "API key is required. Configure it using Promofy.configure({apiKey: 'YOUR_API_KEY'})",
+        "API key is required. Configure it using Promofy.configure({apiKey: 'YOUR_API_KEY'})"
       );
     }
 
     if (!baseWidgetUrl) {
       throw new Error(
-        "Base widget URL is required for v1 authentication. Configure it using Promofy.configure({baseWidgetUrl: 'YOUR_WIDGET_URL'})",
+        "Base widget URL is required for v1 authentication. Configure it using Promofy.configure({baseWidgetUrl: 'YOUR_WIDGET_URL'})"
       );
     }
 
@@ -422,17 +421,13 @@ const Promofy = (() => {
 
           // If no container, widget was destroyed, skip it
           if (!container) {
-            console.log(
-              `Widget ${widgetId} container not found, skipping reload`,
-            );
+            console.log(`Widget ${widgetId} container not found, skipping reload`);
             continue;
           }
 
           // If container exists but no iframe, we need to recreate the widget
           if (container && !widgetConfig.iframe) {
-            console.log(
-              `Recreating widget ${widgetId} after authentication change`,
-            );
+            console.log(`Recreating widget ${widgetId} after authentication change`);
 
             // Update config with new auth state
             const updatedConfig = { ...widgetConfig.config };
@@ -491,17 +486,13 @@ const Promofy = (() => {
                   const checkBothLoaded = () => {
                     if (++loadedCount >= 2) resolve();
                   };
-                  widgetConfig.iframe.addEventListener(
-                    "load",
-                    checkBothLoaded,
-                    { once: true },
-                  );
+                  widgetConfig.iframe.addEventListener("load", checkBothLoaded, { once: true });
                   widgetConfig.jackpotBridgeData.fsIframe.addEventListener(
                     "load",
                     checkBothLoaded,
-                    { once: true },
+                    { once: true }
                   );
-                }),
+                })
               );
               continue;
             }
@@ -535,7 +526,7 @@ const Promofy = (() => {
                   resolve();
                 };
                 widgetConfig.iframe.addEventListener("load", onLoad);
-              }),
+              })
             );
           }
         } catch (error) {
@@ -553,7 +544,7 @@ const Promofy = (() => {
   /**
    * Build dual-iframe jackpot widget with embedded bridge logic.
    * Creates cards iframe in container + hidden fullscreen overlay on document.body.
-   * Supports single-jackpot (promoId) and multi-jackpot (gameId) modes.
+   * Supports single-jackpot (promoId) and multi-jackpot (gameId + providerId) modes.
    */
   const buildJackpotWidget = (containerId, widgetConfig, callbacks = {}) => {
     const container = document.getElementById(containerId);
@@ -731,7 +722,7 @@ const Promofy = (() => {
   }) => {
     if (!apiKey) {
       throw new Error(
-        "API key is required. Configure it using Promofy.configure({apiKey: 'YOUR_API_KEY'})",
+        "API key is required. Configure it using Promofy.configure({apiKey: 'YOUR_API_KEY'})"
       );
     }
 
@@ -746,8 +737,7 @@ const Promofy = (() => {
     }
 
     // Read promoId from container data attribute if not provided in params
-    const containerPromoId =
-      container.dataset.promoId || container.getAttribute("data-promo-id");
+    const containerPromoId = container.dataset.promoId || container.getAttribute("data-promo-id");
     const finalPromoId = promoId || containerPromoId;
 
     // Validate required parameters
@@ -771,7 +761,7 @@ const Promofy = (() => {
     const supportedLanguages = Object.values(PromofyLanguage);
     if (!supportedLanguages.includes(lng)) {
       console.warn(
-        `Warning: '${lng}' is not in the list of supported languages. Supported languages are: ${supportedLanguages.join(", ")}`,
+        `Warning: '${lng}' is not in the list of supported languages. Supported languages are: ${supportedLanguages.join(", ")}`
       );
     }
 
@@ -800,7 +790,7 @@ const Promofy = (() => {
       const providerId = params && params.providerId;
       if (!finalPromoId && !(gameId && providerId)) {
         throw new Error(
-          "Either promoId or both params.gameId and params.providerId are required for jackpot type",
+          "Either promoId or both params.gameId and params.providerId are required for jackpot type"
         );
       }
     }
@@ -811,7 +801,7 @@ const Promofy = (() => {
     // mini parameter is only supported in v1
     if (mini && useVersion !== "v1") {
       throw new Error(
-        `The 'mini' parameter is only supported with v1 authentication. Please set version: 'v1' or configure with Promofy.configure({version: 'v1'})`,
+        `The 'mini' parameter is only supported with v1 authentication. Please set version: 'v1' or configure with Promofy.configure({version: 'v1'})`
       );
     }
 
@@ -826,10 +816,7 @@ const Promofy = (() => {
     }
 
     // Determine path based on product and type
-    const path =
-      typeof typeMap[type] === "function"
-        ? typeMap[type](finalPromoId)
-        : typeMap[type];
+    const path = typeof typeMap[type] === "function" ? typeMap[type](finalPromoId) : typeMap[type];
 
     // Store configuration for this widget instance
     const widgetConfig = {
@@ -853,7 +840,7 @@ const Promofy = (() => {
       if (type === PromofyType.JACKPOT) {
         if (!baseWidgetUrl) {
           throw new Error(
-            "Base widget URL is required for jackpot. Configure it using Promofy.configure({baseWidgetUrl: 'YOUR_WIDGET_URL'})",
+            "Base widget URL is required for jackpot. Configure it using Promofy.configure({baseWidgetUrl: 'YOUR_WIDGET_URL'})"
           );
         }
 
@@ -896,7 +883,7 @@ const Promofy = (() => {
         // v1: Direct URL construction
         if (!baseWidgetUrl) {
           throw new Error(
-            "Base widget URL is required for v1 authentication. Configure it using Promofy.configure({baseWidgetUrl: 'YOUR_WIDGET_URL'})",
+            "Base widget URL is required for v1 authentication. Configure it using Promofy.configure({baseWidgetUrl: 'YOUR_WIDGET_URL'})"
           );
         }
         iframeUrl = buildWidgetUrl(widgetConfig);
@@ -904,7 +891,7 @@ const Promofy = (() => {
         // v0: HMAC authentication
         if (!gatewayUrl) {
           throw new Error(
-            "Gateway URL is required for v0 authentication. Configure it using Promofy.configure({gatewayUrl: 'YOUR_GATEWAY_URL'})",
+            "Gateway URL is required for v0 authentication. Configure it using Promofy.configure({gatewayUrl: 'YOUR_GATEWAY_URL'})"
           );
         }
         iframeUrl = await getSignedIframeUrl(widgetConfig);
@@ -925,9 +912,7 @@ const Promofy = (() => {
       if (!widgetRegistry.has(widgetId)) {
         widgetRegistry.set(widgetId, widgetEntry);
       } else {
-        console.warn(
-          `Widget ID ${widgetId} already exists, skipping registration`,
-        );
+        console.warn(`Widget ID ${widgetId} already exists, skipping registration`);
       }
 
       // Update global state for backward compatibility
@@ -1078,10 +1063,7 @@ const Promofy = (() => {
           }
 
           // If this was the current config, reset it
-          if (
-            currentConfig &&
-            currentConfig.containerId === widgetConfig.containerId
-          ) {
+          if (currentConfig && currentConfig.containerId === widgetConfig.containerId) {
             currentConfig = null;
             iframeElement = null;
             connected = false;
