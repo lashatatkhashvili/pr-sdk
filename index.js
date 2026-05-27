@@ -349,11 +349,14 @@ const Promofy = (() => {
     const msg = { event: "TOKEN_REFRESH", data: { token } };
 
     for (const [, entry] of widgetRegistry) {
-      if (entry.iframe?.contentWindow) {
+      if (entry?.iframe?.contentWindow) {
         entry.iframe.contentWindow.postMessage(msg, targetOrigin);
       }
       // Jackpot: notify both the cards iframe and the hidden fullscreen iframe
-      if (entry.isJackpot && entry.jackpotBridgeData?.fsIframe?.contentWindow) {
+      if (
+        entry?.isJackpot &&
+        entry?.jackpotBridgeData?.fsIframe?.contentWindow
+      ) {
         entry.jackpotBridgeData.fsIframe.contentWindow.postMessage(
           msg,
           targetOrigin,
